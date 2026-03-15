@@ -15,7 +15,6 @@ __pycache__/
 # Tauri
 src-tauri/target/
 src-tauri/WixTools/
-src-tauri/icons/
 
 # Data
 data/
