@@ -24,17 +24,22 @@ impl BackendState {
         let python = find_python(&backend_dir)?;
         let main_py = backend_dir.join("main.py");
 
-        if !main_py.exists() {
-            return Err(format!("backend/main.py not found at {:?}", main_py));
-        }
+        // Bundled mode: executable runs directly; dev mode: python main.py
+        let is_bundled = python.file_stem().map(|s| s.to_string_lossy().starts_with("dino-gallery-backend")).unwrap_or(false);
 
         log::info!(
-            "Starting backend: {:?} {:?} --port 0 --data-dir {}",
-            python, main_py, data_dir
+            "Starting backend: {:?} (bundled={}) --port 0 --data-dir {}",
+            python, is_bundled, data_dir
         );
 
-        let mut child = Command::new(&python)
-            .arg(&main_py)
+        let mut cmd = Command::new(&python);
+        if !is_bundled {
+            if !main_py.exists() {
+                return Err(format!("backend/main.py not found at {:?}", main_py));
+            }
+            cmd.arg(&main_py);
+        }
+        let mut child = cmd
             .arg("--port")
             .arg("0")
             .arg("--data-dir")
@@ -111,6 +116,16 @@ impl Drop for BackendState {
 fn find_backend_dir() -> Result<PathBuf, String> {
     let cwd = std::env::current_dir().map_err(|e| e.to_string())?;
 
+    // Try: next to the app binary (bundled mode)
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(exe_dir) = exe.parent() {
+            let candidate = exe_dir.join("backend");
+            if candidate.join("main.py").exists() || candidate.join("dino-gallery-backend").exists() || candidate.join("dino-gallery-backend.exe").exists() {
+                return Ok(candidate);
+            }
+        }
+    }
+
     // Try: cwd/../backend (dev mode, cwd = src-tauri)
     if let Some(parent) = cwd.parent() {
         let candidate = parent.join("backend");
@@ -133,8 +148,20 @@ fn find_backend_dir() -> Result<PathBuf, String> {
 
 /// Find Python: prefer .venv in backend dir, then system python3/python.
 fn find_python(backend_dir: &PathBuf) -> Result<PathBuf, String> {
+    // Check for bundled PyInstaller executable
+    let bundled = if cfg!(windows) {
+        backend_dir.join("dino-gallery-backend.exe")
+    } else {
+        backend_dir.join("dino-gallery-backend")
+    };
+    if bundled.exists() {
+        log::info!("Using bundled backend: {:?}", bundled);
+        return Ok(bundled);
+    }
+
     // Check .venv/bin/python inside backend dir
-    let venv_python = backend_dir.join(".venv").join("bin").join("python");
+    let venv_bin = if cfg!(windows) { "Scripts" } else { "bin" };
+    let venv_python = backend_dir.join(".venv").join(venv_bin).join(if cfg!(windows) { "python.exe" } else { "python" });
     if venv_python.exists() {
         log::info!("Using venv python: {:?}", venv_python);
         return Ok(venv_python);
