@@ -1,0 +1,35 @@
+node_modules/
+dist/
+target/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+*.npz
+*.onnx
+*.so
+*.dylib
+*.dll
+
+# Tauri
+src-tauri/target/
+src-tauri/WixTools/
+src-tauri/icons/
+
+# Data
+data/
+thumbnails/
+*.db
+*.db-journal
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Env
+.env
+.env.*
