@@ -1,4 +1,4 @@
-"""DINO Gallery Backend - FastAPI entry point."""
+"""Synapse Backend - FastAPI entry point."""
 import os
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -38,7 +38,7 @@ def create_app(data_dir: str) -> FastAPI:
     _data_dir = data_dir
     os.makedirs(data_dir, exist_ok=True)
 
-    app = FastAPI(title="DINO Gallery Backend", lifespan=lifespan)
+    app = FastAPI(title="Synapse Backend", lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
@@ -52,12 +52,12 @@ def create_app(data_dir: str) -> FastAPI:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="DINO Gallery Backend")
+    parser = argparse.ArgumentParser(description="Synapse Backend")
     parser.add_argument("--port", type=int, default=0, help="Port (0 = auto)")
     parser.add_argument(
         "--data-dir",
         type=str,
-        default=os.path.expanduser("~/.dino-gallery"),
+        default=os.path.expanduser("~/.synapse"),
         help="Data directory",
     )
     args = parser.parse_args()

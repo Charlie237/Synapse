@@ -27,7 +27,7 @@ pub fn run() {
                 .unwrap_or_else(|_| {
                     let home = std::env::var("HOME")
                         .unwrap_or_else(|_| "/tmp".to_string());
-                    format!("{}/.dino-gallery", home)
+                    format!("{}/.synapse", home)
                 });
 
             std::fs::create_dir_all(&data_dir).ok();

@@ -1,5 +1,5 @@
 [project]
-name = "dino-gallery-backend"
+name = "synapse-backend"
 version = "0.1.0"
 description = "AI-powered photo gallery backend"
 requires-python = ">=3.10"

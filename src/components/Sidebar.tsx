@@ -79,7 +79,7 @@ export default function Sidebar() {
   return (
     <aside className={`w-52 flex flex-col shrink-0 border-r ${isDark ? "border-neutral-800 bg-neutral-900/50" : "border-neutral-200 bg-neutral-50"}`}>
       <div className="p-4 pt-6">
-        <h1 className="text-lg font-semibold tracking-tight">DINO Gallery</h1>
+        <h1 className="text-lg font-semibold tracking-tight">Synapse</h1>
       </div>
 
       <div className="flex-1 overflow-y-auto px-2">

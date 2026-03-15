@@ -1,5 +1,5 @@
 [package]
-name = "dino-gallery"
+name = "synapse"
 version = "0.1.0"
 description = "AI-powered photo gallery with duplicate detection and natural language search"
 authors = ["you"]

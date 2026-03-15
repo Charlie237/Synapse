@@ -25,7 +25,7 @@ impl BackendState {
         let main_py = backend_dir.join("main.py");
 
         // Bundled mode: executable runs directly; dev mode: python main.py
-        let is_bundled = python.file_stem().map(|s| s.to_string_lossy().starts_with("dino-gallery-backend")).unwrap_or(false);
+        let is_bundled = python.file_stem().map(|s| s.to_string_lossy().starts_with("synapse-backend")).unwrap_or(false);
 
         log::info!(
             "Starting backend: {:?} (bundled={}) --port 0 --data-dir {}",
@@ -120,7 +120,7 @@ fn find_backend_dir() -> Result<PathBuf, String> {
     if let Ok(exe) = std::env::current_exe() {
         if let Some(exe_dir) = exe.parent() {
             let candidate = exe_dir.join("backend");
-            if candidate.join("main.py").exists() || candidate.join("dino-gallery-backend").exists() || candidate.join("dino-gallery-backend.exe").exists() {
+            if candidate.join("main.py").exists() || candidate.join("synapse-backend").exists() || candidate.join("synapse-backend.exe").exists() {
                 return Ok(candidate);
             }
         }
@@ -150,9 +150,9 @@ fn find_backend_dir() -> Result<PathBuf, String> {
 fn find_python(backend_dir: &PathBuf) -> Result<PathBuf, String> {
     // Check for bundled PyInstaller executable
     let bundled = if cfg!(windows) {
-        backend_dir.join("dino-gallery-backend.exe")
+        backend_dir.join("synapse-backend.exe")
     } else {
-        backend_dir.join("dino-gallery-backend")
+        backend_dir.join("synapse-backend")
     };
     if bundled.exists() {
         log::info!("Using bundled backend: {:?}", bundled);

@@ -231,7 +231,7 @@ export default function SettingsPage() {
               </span>
             </div>
           </div>
-          <p className={`${descClass} mt-3`}>DINO Gallery v0.1.0 — {t("aboutDesc")}</p>
+          <p className={`${descClass} mt-3`}>Synapse v0.1.0 — {t("aboutDesc")}</p>
         </div>
       </div>
 

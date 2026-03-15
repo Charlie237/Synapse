@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "DINO Gallery",
+  "productName": "Synapse",
   "version": "0.1.0",
-  "identifier": "com.dino-gallery.app",
+  "identifier": "com.synapse.app",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "DINO Gallery",
+        "title": "Synapse",
         "width": 1200,
         "height": 800,
         "minWidth": 800,

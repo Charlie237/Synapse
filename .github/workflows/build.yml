@@ -56,25 +56,40 @@ jobs:
 
       - name: Bundle Python backend
         working-directory: backend
-        run: pyinstaller dino-gallery-backend.spec --distpath ../src-tauri/backend-dist
+        run: pyinstaller synapse-backend.spec --distpath ../src-tauri/backend-dist
 
       - name: Copy bundled backend into place
         shell: bash
         run: |
           mkdir -p src-tauri/backend
-          cp -r src-tauri/backend-dist/dino-gallery-backend/* src-tauri/backend/
+          cp -r src-tauri/backend-dist/synapse-backend/* src-tauri/backend/
 
       - name: Install Tauri CLI
         run: npm install -g @tauri-apps/cli
 
-      - name: Build Tauri app
+      - name: Build Tauri app (release)
+        if: startsWith(github.ref, 'refs/tags/')
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: 'DINO Gallery ${{ github.ref_name }}'
+          releaseName: 'Synapse ${{ github.ref_name }}'
           releaseBody: 'See the assets below to download for your platform.'
           releaseDraft: true
           prerelease: false
           args: --target ${{ matrix.target }}
+
+      - name: Build Tauri app (no release)
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        run: npm run tauri build -- --target ${{ matrix.target }}
+
+      - name: Upload artifacts
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: synapse-${{ matrix.label }}
+          path: |
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.dmg
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.msi
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.exe

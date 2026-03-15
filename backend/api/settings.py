@@ -57,7 +57,7 @@ async def remove_folder(req: RemoveFolderRequest):
     if not folder:
         return {"ok": False, "removed": 0}
 
-    data_dir = os.path.expanduser("~/.dino-gallery")
+    data_dir = os.path.expanduser("~/.synapse")
     conn = get_connection()
 
     rows = conn.execute(
@@ -104,7 +104,7 @@ async def reset_library(request_obj=None):
     conn.commit()
 
     # Clear indexes and thumbnails
-    data_dir = os.path.expanduser("~/.dino-gallery")
+    data_dir = os.path.expanduser("~/.synapse")
     for f in glob.glob(os.path.join(data_dir, "*.npz")):
         os.remove(f)
     thumb_dir = os.path.join(data_dir, "thumbnails")

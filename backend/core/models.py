@@ -37,7 +37,7 @@ def _get_models_dir(base_dir: str | None = None) -> str:
     if base_dir:
         d = os.path.join(base_dir, "onnx_models")
     else:
-        d = os.path.join(os.path.expanduser("~"), ".dino-gallery", "onnx_models")
+        d = os.path.join(os.path.expanduser("~"), ".synapse", "onnx_models")
     os.makedirs(d, exist_ok=True)
     return d
 
