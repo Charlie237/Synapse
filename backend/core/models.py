@@ -21,7 +21,7 @@ logging.getLogger("transformers.modeling_utils").setLevel(logging.ERROR)
 
 DINO_DIM = 768
 CLIP_DIM = 512
-MODEL_VERSION = "3"
+MODEL_VERSION = "1"
 
 DEFAULT_MODEL_URL = "https://github.com/Charlie237/Synapse/releases/download/models-v{version}/models-{arch}.zip"
 

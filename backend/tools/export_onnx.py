@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 
 
-MODEL_VERSION = "3"  # Bump when changing models to trigger re-export
+MODEL_VERSION = "1"  # Bump when changing models to trigger re-export
 
 
 class DINOv2Wrapper(nn.Module):
