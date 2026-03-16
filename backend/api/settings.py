@@ -15,6 +15,7 @@ class SettingsUpdate(BaseModel):
     vision_base_url: str | None = None
     vision_model: str | None = None
     scan_folders: list[str] | None = None
+    model_mirror_url: str | None = None
 
 
 @router.get("/settings")

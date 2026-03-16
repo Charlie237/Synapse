@@ -64,3 +64,9 @@ def _run_migrations(conn: sqlite3.Connection):
                      "focal_length REAL", "aperture REAL", "iso INTEGER"]:
             conn.execute(f"ALTER TABLE images ADD COLUMN {col}")
         conn.commit()
+
+    # Add no_exif counter to scan_jobs
+    sj_cols = {row[1] for row in conn.execute("PRAGMA table_info(scan_jobs)").fetchall()}
+    if "no_exif" not in sj_cols:
+        conn.execute("ALTER TABLE scan_jobs ADD COLUMN no_exif INTEGER DEFAULT 0")
+        conn.commit()

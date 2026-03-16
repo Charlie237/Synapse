@@ -680,23 +680,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dino-gallery"
-version = "0.1.0"
-dependencies = [
- "log",
- "portpicker",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-log",
- "tauri-plugin-shell",
- "tokio",
-]
-
-[[package]]
 name = "dirs"
 version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3863,6 +3846,23 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
+]
+
+[[package]]
+name = "synapse"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "portpicker",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-log",
+ "tauri-plugin-shell",
+ "tokio",
 ]
 
 [[package]]

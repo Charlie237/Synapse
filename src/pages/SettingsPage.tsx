@@ -14,7 +14,7 @@ export default function SettingsPage() {
   const { t, locale, setLocale } = useI18n();
   const isDark = resolved === "dark";
   const queryClient = useQueryClient();
-  const { status, modelsStatus, port } = useBackend();
+  const { status, modelsStatus, modelsDetail, port } = useBackend();
 
   const [searchMode, setSearchMode] = useState("local");
   const [apiKey, setApiKey] = useState("");
@@ -25,6 +25,7 @@ export default function SettingsPage() {
   const [visionModel, setVisionModel] = useState("gpt-4o");
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [folders, setFolders] = useState<string[]>([]);
+  const [mirrorUrl, setMirrorUrl] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [refreshResult, setRefreshResult] = useState<string | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
@@ -41,20 +42,21 @@ export default function SettingsPage() {
       setVisionUrl(s.vision_base_url || "");
       setVisionModel(s.vision_model || "gpt-4o");
       setFolders(Array.isArray(s.scan_folders) ? s.scan_folders : []);
+      setMirrorUrl(s.model_mirror_url || "");
     }).catch(() => {});
   }, [status]);
 
   const saveAI = useCallback(async () => {
     const data: Record<string, string> = {
       search_mode: searchMode, openai_base_url: baseUrl, openai_model: aiModel,
-      vision_base_url: visionUrl, vision_model: visionModel,
+      vision_base_url: visionUrl, vision_model: visionModel, model_mirror_url: mirrorUrl,
     };
     if (apiKey && apiKey !== "••••••") data.openai_api_key = apiKey;
     if (visionKey && visionKey !== "••••••") data.vision_api_key = visionKey;
     await api.updateSettings(data);
     setSettingsSaved(true);
     setTimeout(() => setSettingsSaved(false), 2000);
-  }, [searchMode, apiKey, baseUrl, aiModel, visionKey, visionUrl, visionModel]);
+  }, [searchMode, apiKey, baseUrl, aiModel, visionKey, visionUrl, visionModel, mirrorUrl]);
 
   const addFolder = useCallback(async () => {
     const folder = await open({ directory: true, multiple: false });
@@ -226,12 +228,31 @@ export default function SettingsPage() {
             </div>
             <div className="flex justify-between">
               <span className={subClass}>{t("modelsStatusLabel")}</span>
-              <span className={modelsStatus === "ready" ? "text-green-500" : modelsStatus === "loading" ? "text-yellow-500" : subClass}>
-                {modelsStatus === "ready" ? t("modelsReady") : modelsStatus === "loading" ? t("loadingModels") : t("modelsNotLoaded")}
+              <span className={modelsStatus === "ready" ? "text-green-500" : modelsStatus === "loading" || modelsStatus === "downloading" ? "text-yellow-500" : subClass}>
+                {modelsStatus === "ready" ? t("modelsReady") : modelsStatus === "loading" || modelsStatus === "downloading" ? t("loadingModels") : t("modelsNotLoaded")}
               </span>
             </div>
+            {Object.keys(modelsDetail).length > 0 && (
+              <div className={`ml-2 space-y-0.5 text-xs ${subClass}`}>
+                {Object.entries(modelsDetail).map(([name, st]) => (
+                  <div key={name} className="flex justify-between">
+                    <span>{name}</span>
+                    <span className={st === "ready" ? "text-green-500" : st === "loading" ? "text-yellow-500" : st === "error" ? "text-red-500" : ""}>
+                      {st === "ready" ? "✓" : st === "loading" ? "⏳" : st === "error" ? "✗" : "·"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <p className={`${descClass} mt-3`}>Synapse v0.1.0 — {t("aboutDesc")}</p>
+          <div className={`mt-3 pt-3 border-t ${isDark ? "border-neutral-700" : "border-neutral-200"}`}>
+            <p className={descClass}>{t("modelMirrorDesc")}</p>
+            <input type="text" value={mirrorUrl} onChange={(e) => setMirrorUrl(e.target.value)}
+              placeholder={t("modelMirrorPlaceholder")} className={inputClass} />
+            <button onClick={async () => { await api.updateSettings({ model_mirror_url: mirrorUrl } as any); setSettingsSaved(true); setTimeout(() => setSettingsSaved(false), 2000); }}
+              className={`${pill(false)} mt-2`}>{t("saveSettings")}</button>
+          </div>
         </div>
       </div>
 

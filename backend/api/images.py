@@ -108,7 +108,7 @@ async def list_images_grouped(group_by: str = "camera_model",
     result = []
     for g in groups:
         rows = conn.execute(
-            f"SELECT * FROM images WHERE {where_sql} AND {col} = ? ORDER BY taken_at DESC LIMIT ?",
+            f"SELECT * FROM images WHERE {where_sql} AND {col} = ? ORDER BY COALESCE(taken_at, created_at) DESC LIMIT ?",
             params + [g[0], limit_per_group]
         ).fetchall()
         label = f"{g[0]}mm" if group_by == "focal_length" else str(g[0])

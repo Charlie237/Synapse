@@ -92,7 +92,7 @@ async def search(req: SearchRequest, request: Request):
             loc_conds = ["location_name LIKE ?" for _ in locations]
             conds.append(f"({' OR '.join(loc_conds)})")
             params.extend(f"%{l}%" for l in locations)
-        sql = f"SELECT * FROM images WHERE {' AND '.join(conds)} ORDER BY taken_at DESC LIMIT ?"
+        sql = f"SELECT * FROM images WHERE {' AND '.join(conds)} ORDER BY COALESCE(taken_at, created_at) DESC LIMIT ?"
         params.append(req.limit)
         rows = conn.execute(sql, params).fetchall()
         return {"results": [{"image": dict(r), "score": 1.0} for r in rows], "parsed": parsed}

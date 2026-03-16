@@ -10,20 +10,24 @@ import { invoke } from "@tauri-apps/api/core";
 import { setBackendPort, api } from "../api/client";
 
 type BackendStatus = "connecting" | "ready" | "error";
-type ModelsStatus = "not_loaded" | "loading" | "ready" | "error";
+type ModelsStatus = "not_loaded" | "need_download" | "loading" | "downloading" | "ready" | "error";
 
 interface BackendContextValue {
   status: BackendStatus;
   modelsStatus: ModelsStatus;
+  modelsDetail: Record<string, string>;
   port: number | null;
   error: string | null;
+  downloadProgress: { downloaded: number; total: number } | null;
 }
 
 const BackendContext = createContext<BackendContextValue>({
   status: "connecting",
   modelsStatus: "not_loaded",
+  modelsDetail: {},
   port: null,
   error: null,
+  downloadProgress: null,
 });
 
 export function useBackend() {
@@ -33,8 +37,10 @@ export function useBackend() {
 export function BackendProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<BackendStatus>("connecting");
   const [modelsStatus, setModelsStatus] = useState<ModelsStatus>("not_loaded");
+  const [modelsDetail, setModelsDetail] = useState<Record<string, string>>({});
   const [port, setPort] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [downloadProgress, setDownloadProgress] = useState<{ downloaded: number; total: number } | null>(null);
 
   const pollBackend = useCallback(async () => {
     try {
@@ -88,6 +94,9 @@ export function BackendProvider({ children }: { children: ReactNode }) {
         try {
           const res = await api.modelsStatus();
           setModelsStatus(res.status as ModelsStatus);
+          setModelsDetail(res.models || {});
+          setDownloadProgress(res.download?.downloading ? { downloaded: res.download.downloaded, total: res.download.total } : null);
+          if (res.status === "error") setError(res.error || "Unknown error");
           if (res.status === "ready" || res.status === "error") break;
         } catch {
           // ignore
@@ -101,7 +110,7 @@ export function BackendProvider({ children }: { children: ReactNode }) {
   }, [status]);
 
   return (
-    <BackendContext.Provider value={{ status, modelsStatus, port, error }}>
+    <BackendContext.Provider value={{ status, modelsStatus, modelsDetail, port, error, downloadProgress }}>
       {children}
     </BackendContext.Provider>
   );

@@ -14,6 +14,7 @@ DEFAULTS = {
     "vision_base_url": "",
     "vision_model": "gpt-4o",
     "scan_folders": [],  # list of imported folder paths
+    "model_mirror_url": "",  # custom model download URL, supports {version} and {arch}
 }
 
 

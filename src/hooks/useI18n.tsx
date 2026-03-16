@@ -137,12 +137,21 @@ const translations = {
     // Import
     importComplete: "Import complete",
     importing: "Importing...",
+    noExifHint: "{count} photos have no EXIF date and won't appear in timeline",
     // App loading
     loadingBackend: "Starting backend...",
     loadingAI: "Loading AI models...",
+    downloadingModels: "Downloading AI models...",
     modelFailed: "Model loading failed",
     firstLaunch: "First launch may take longer to download models",
     restartApp: "Please restart the application",
+    modelsNotFound: "AI models not found",
+    modelsNotFoundDesc: "Models are required for search and similarity features. Download now or configure a mirror in settings.",
+    downloadModels: "Download Models",
+    retryDownload: "Retry Download",
+    goToSettings: "Settings (Mirror URL)",
+    modelMirrorDesc: "Model mirror URL (for users who cannot access GitHub)",
+    modelMirrorPlaceholder: "https://mirror.example.com/.../models-{arch}.zip",
     // ImageViewer
     similarImages: "Similar Images",
     aiReview: "AI Review",
@@ -157,7 +166,7 @@ const translations = {
     fileSize: "Size",
     dimensions: "Dimensions",
     dateTaken: "Date Taken",
-    dateImported: "Date Imported",
+    dateImported: "File Date",
     camera: "Camera",
     lens: "Lens",
     exposure: "Exposure",
@@ -300,11 +309,20 @@ const translations = {
     language: "语言",
     importComplete: "导入完成",
     importing: "导入中...",
+    noExifHint: "{count} 张照片缺少拍摄日期，不会出现在时间线中",
     loadingBackend: "正在启动后端...",
     loadingAI: "正在加载 AI 模型...",
+    downloadingModels: "正在下载 AI 模型...",
     modelFailed: "模型加载失败",
     firstLaunch: "首次启动可能需要较长时间下载模型",
     restartApp: "请重启应用",
+    modelsNotFound: "未找到 AI 模型",
+    modelsNotFoundDesc: "搜索和相似图片功能需要 AI 模型。立即下载，或在设置中配置镜像地址。",
+    downloadModels: "下载模型",
+    retryDownload: "重试下载",
+    goToSettings: "设置（镜像地址）",
+    modelMirrorDesc: "模型镜像地址（无法访问 GitHub 时使用）",
+    modelMirrorPlaceholder: "https://mirror.example.com/.../models-{arch}.zip",
     similarImages: "相似图片",
     aiReview: "AI 点评",
     reviewFailed: "点评失败，请检查 API 设置",
@@ -318,7 +336,7 @@ const translations = {
     fileSize: "大小",
     dimensions: "尺寸",
     dateTaken: "拍摄时间",
-    dateImported: "导入时间",
+    dateImported: "文件日期",
     camera: "相机",
     lens: "镜头",
     exposure: "曝光参数",
@@ -341,7 +359,7 @@ type TranslationKey = keyof typeof translations.en;
 interface I18nContextValue {
   locale: Locale;
   setLocale: (l: Locale) => void;
-  t: (key: TranslationKey) => string;
+  t: (key: TranslationKey, vars?: Record<string, string | number>) => string;
 }
 
 const I18nContext = createContext<I18nContextValue>({
@@ -366,7 +384,11 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     try { localStorage.setItem("locale", l); } catch {}
   };
 
-  const t = (key: TranslationKey): string => translations[locale][key] ?? key;
+  const t = (key: TranslationKey, vars?: Record<string, string | number>): string => {
+    let s = translations[locale][key] ?? key;
+    if (vars) for (const [k, v] of Object.entries(vars)) s = s.replace(`{${k}}`, String(v));
+    return s;
+  };
 
   return (
     <I18nContext.Provider value={{ locale, setLocale, t }}>

@@ -28,13 +28,15 @@ export default function ImportProgress({ jobId, onComplete }: Props) {
 
   const total = data?.total ?? 0;
   const processed = data?.processed ?? 0;
+  const noExif = data?.no_exif ?? 0;
   const pct = total > 0 ? Math.round((processed / total) * 100) : 0;
+  const completed = data?.status === "completed";
 
   return (
     <div className={`px-6 py-3 border-b ${isDark ? "border-neutral-800 bg-neutral-900/50" : "border-neutral-200 bg-neutral-50"}`}>
       <div className="flex items-center justify-between text-sm mb-1.5">
         <span className={isDark ? "text-neutral-300" : "text-neutral-700"}>
-          {data?.status === "completed"
+          {completed
             ? t("importComplete")
             : `${t("importing")} ${processed}/${total}`}
         </span>
@@ -43,6 +45,11 @@ export default function ImportProgress({ jobId, onComplete }: Props) {
       <div className={`h-1.5 rounded-full overflow-hidden ${isDark ? "bg-neutral-800" : "bg-neutral-200"}`}>
         <div className="h-full bg-blue-500 rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
       </div>
+      {completed && noExif > 0 && (
+        <p className={`text-xs mt-1.5 ${isDark ? "text-neutral-500" : "text-neutral-400"}`}>
+          {t("noExifHint", { count: noExif })}
+        </p>
+      )}
     </div>
   );
 }

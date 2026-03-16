@@ -27,6 +27,7 @@ from db.queries import (
     get_all_image_ids,
     get_image_by_id,
 )
+from db.database import get_connection
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff", ".tif", ".heic", ".heif"}
 _executor = ThreadPoolExecutor(max_workers=2)
@@ -201,6 +202,7 @@ def import_image_fast(file_path: str, data_dir: str) -> int | None:
     file_size = os.path.getsize(file_path)
     fmt = img.format or os.path.splitext(file_path)[1].lstrip(".").lower()
     thumb_path = generate_thumbnail(img, file_path, data_dir)
+    created_at = datetime.fromtimestamp(os.path.getmtime(file_path)).isoformat()
 
     image_id = insert_image(
         file_path=file_path,
@@ -210,6 +212,7 @@ def import_image_fast(file_path: str, data_dir: str) -> int | None:
         height=height,
         fmt=fmt,
         taken_at=taken_at,
+        created_at=created_at,
         thumbnail=thumb_path,
         latitude=lat,
         longitude=lon,
@@ -265,18 +268,24 @@ def _run_scan(job_id: int, files: list[str], data_dir: str):
     imported_ids: list[tuple[int, str]] = []
 
     # --- Phase 1: fast import (no AI) ---
+    no_exif = 0
     for i, file_path in enumerate(files):
         try:
             image_id = import_image_fast(file_path, data_dir)
             if image_id is not None:
                 imported_ids.append((image_id, file_path))
+                # Check if imported image lacks EXIF date
+                conn = get_connection()
+                row = conn.execute("SELECT taken_at FROM images WHERE id = ?", (image_id,)).fetchone()
+                if row and row[0] is None:
+                    no_exif += 1
         except Exception:
             traceback.print_exc()
 
         update_scan_job(job_id, processed=i + 1)
 
     update_scan_job(
-        job_id, status="completed", finished_at=datetime.now().isoformat()
+        job_id, status="completed", finished_at=datetime.now().isoformat(), no_exif=no_exif
     )
 
     # Refresh location cache after import

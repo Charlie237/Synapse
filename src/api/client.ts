@@ -31,7 +31,14 @@ async function request<T>(
 export const api = {
   health: () => request<{ status: string }>("/api/health"),
   modelsStatus: () =>
-    request<{ status: string; error?: string }>("/api/models/status"),
+    request<{
+      status: string;
+      error?: string;
+      models?: Record<string, string>;
+      download?: { downloading: boolean; downloaded: number; total: number };
+    }>("/api/models/status"),
+  downloadModels: () =>
+    request<{ ok: boolean }>("/api/models/download", { method: "POST" }),
 
   // Library
   scanFolder: (folderPath: string) =>
@@ -45,6 +52,7 @@ export const api = {
       status: string;
       total: number;
       processed: number;
+      no_exif?: number;
     }>(`/api/library/scan/status${jobId ? `?job_id=${jobId}` : ""}`),
 
   refreshMetadata: () =>

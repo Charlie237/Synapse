@@ -1,10 +1,10 @@
 """DINOv2 + Chinese-CLIP model management using ONNX Runtime.
 
-Export: FP32 ONNX (build-time or first launch via torch).
-Quantize: INT8 at runtime based on platform (only needs onnxruntime).
-
+Models are downloaded as pre-quantized packages from GitHub Releases (or a mirror).
   x86_64: all models INT8 (Conv + Linear supported, VNNI acceleration)
-  arm64:  vision FP32 (Conv INT8 broken) + text INT8 (pure Linear)
+  arm64:  vision FP32 + text INT8 (Conv INT8/FP16 not supported by CPU EP)
+
+Manual placement: put model files in ~/.synapse/onnx_models/
 """
 import glob
 import logging
@@ -12,6 +12,7 @@ import os
 import platform
 import shutil
 import threading
+import zipfile
 
 import numpy as np
 import onnxruntime as ort
@@ -20,17 +21,25 @@ logging.getLogger("transformers.modeling_utils").setLevel(logging.ERROR)
 
 DINO_DIM = 768
 CLIP_DIM = 512
+MODEL_VERSION = "3"
 
-# FP32 base files (from export) → quantized files (runtime)
+DEFAULT_MODEL_URL = "https://github.com/Charlie237/Synapse/releases/download/models-v{version}/models-{arch}.zip"
+
 _MODEL_FILES = {
     "dinov2":     {"fp32": "dinov2.onnx",     "int8": "dinov2_int8.onnx"},
     "clip_image": {"fp32": "clip_image.onnx", "int8": "clip_image_int8.onnx"},
     "clip_text":  {"fp32": "clip_text.onnx",  "int8": "clip_text_int8.onnx"},
 }
 
+_download_progress = {"downloading": False, "downloaded": 0, "total": 0}
+
 
 def _is_x86() -> bool:
     return platform.machine().lower() in ("x86_64", "amd64", "x86")
+
+
+def _get_arch_label() -> str:
+    return "x86_64" if _is_x86() else "arm64"
 
 
 def _get_models_dir(base_dir: str | None = None) -> str:
@@ -42,20 +51,27 @@ def _get_models_dir(base_dir: str | None = None) -> str:
     return d
 
 
-def _fp32_models_exist(models_dir: str) -> bool:
-    """Check if FP32 base models exist (from export or bundled)."""
-    needed = [m["fp32"] for m in _MODEL_FILES.values()] + ["clip_processor", "dinov2_processor"]
+def _models_ready(models_dir: str) -> bool:
+    """Check if the right model files + processors exist."""
+    needed = ["clip_processor", "dinov2_processor"]
+    for m in _MODEL_FILES.values():
+        if not (os.path.exists(os.path.join(models_dir, m["int8"]))
+                or os.path.exists(os.path.join(models_dir, m["fp32"]))):
+            return False
     return all(os.path.exists(os.path.join(models_dir, f)) for f in needed)
 
 
 def _check_model_version(models_dir: str) -> bool:
-    from core.export_onnx import MODEL_VERSION
-
     version_file = os.path.join(models_dir, "model_version.txt")
     if not os.path.exists(version_file):
         return False
     with open(version_file) as f:
         return f.read().strip() == MODEL_VERSION
+
+
+def _write_model_version(models_dir: str):
+    with open(os.path.join(models_dir, "model_version.txt"), "w") as f:
+        f.write(MODEL_VERSION)
 
 
 def _clear_old_models(models_dir: str, data_dir: str):
@@ -72,50 +88,85 @@ def _clear_old_models(models_dir: str, data_dir: str):
         print("[Models] Removed old clip.npz (embedding space changed)", flush=True)
 
 
-def _quantize_int8(fp32_path: str, int8_path: str) -> bool:
-    """Quantize a single model to INT8. Returns True on success."""
-    from onnxruntime.quantization import quantize_dynamic, QuantType
-
-    print(f"[Quantize] {os.path.basename(fp32_path)} -> {os.path.basename(int8_path)}", flush=True)
-    try:
-        quantize_dynamic(
-            fp32_path, int8_path,
-            weight_type=QuantType.QInt8,
-            extra_options={"MatMulConstBOnly": True},
-        )
-        return True
-    except Exception as e:
-        print(f"[Quantize] INT8 failed for {os.path.basename(fp32_path)}: {e}", flush=True)
-        return False
+def get_download_progress() -> dict:
+    return dict(_download_progress)
 
 
-def _quantize_for_platform(models_dir: str):
-    """Quantize models to INT8 based on current platform.
+def _download_models(models_dir: str):
+    """Download pre-quantized models from GitHub Releases (or mirror)."""
+    import urllib.request
+    import urllib.error
+    from core import settings
 
-    x86_64: all models (Conv + Linear INT8 supported)
-    arm64:  text only (Conv INT8 broken on ARM)
-    """
-    arch = platform.machine().lower()
-    x86 = _is_x86()
-    print(f"[Models] Platform: {arch}, quantizing {'all models' if x86 else 'text only'} to INT8...", flush=True)
-
-    if x86:
-        # x86: quantize everything
-        targets = ["dinov2", "clip_image", "clip_text"]
+    arch = _get_arch_label()
+    mirror = settings.get("model_mirror_url") or ""
+    if mirror:
+        url = mirror.format(version=MODEL_VERSION, arch=arch)
     else:
-        # ARM: only text encoder (pure Linear layers)
-        targets = ["clip_text"]
+        url = DEFAULT_MODEL_URL.format(version=MODEL_VERSION, arch=arch)
 
-    for name in targets:
-        fp32_path = os.path.join(models_dir, _MODEL_FILES[name]["fp32"])
-        int8_path = os.path.join(models_dir, _MODEL_FILES[name]["int8"])
-        if os.path.exists(int8_path):
-            continue
-        if not os.path.exists(fp32_path):
-            continue
-        _quantize_int8(fp32_path, int8_path)
+    zip_path = os.path.join(models_dir, "models.zip")
+    print(f"[Models] Downloading models from {url} ...", flush=True)
 
-    print("[Models] Quantization complete.", flush=True)
+    _download_progress["downloading"] = True
+    _download_progress["downloaded"] = 0
+    _download_progress["total"] = 0
+
+    max_retries = 3
+    for attempt in range(1, max_retries + 1):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "Synapse"})
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                total = int(resp.headers.get("Content-Length", 0))
+                _download_progress["total"] = total
+                downloaded = 0
+                with open(zip_path, "wb") as f:
+                    while True:
+                        chunk = resp.read(256 * 1024)
+                        if not chunk:
+                            break
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        _download_progress["downloaded"] = downloaded
+
+            if not zipfile.is_zipfile(zip_path):
+                raise RuntimeError("Downloaded file is not a valid zip")
+
+            print(f"[Models] Download complete ({downloaded} bytes), extracting...", flush=True)
+            with zipfile.ZipFile(zip_path, "r") as zf:
+                zf.extractall(models_dir)
+            os.remove(zip_path)
+            _write_model_version(models_dir)
+            print("[Models] Models ready.", flush=True)
+            return
+
+        except (urllib.error.URLError, OSError, RuntimeError) as e:
+            print(f"[Models] Download attempt {attempt}/{max_retries} failed: {e}", flush=True)
+            if os.path.exists(zip_path):
+                os.remove(zip_path)
+            if attempt == max_retries:
+                raise RuntimeError(f"Failed to download models after {max_retries} attempts: {e}") from e
+            _download_progress["downloaded"] = 0
+        finally:
+            if attempt == max_retries or not os.path.exists(zip_path):
+                _download_progress["downloading"] = False
+
+
+def get_models_dir(data_dir: str) -> str:
+    return _get_models_dir(data_dir)
+
+
+def check_models_available(data_dir: str) -> bool:
+    """Check if models exist and version matches."""
+    models_dir = _get_models_dir(data_dir)
+    return _models_ready(models_dir) and _check_model_version(models_dir)
+
+
+def download_models(models_dir: str, data_dir: str):
+    """Download models. Clears old models if version mismatch."""
+    if not _check_model_version(models_dir):
+        _clear_old_models(models_dir, data_dir)
+    _download_models(models_dir)
 
 
 def _get_model_path(models_dir: str, name: str) -> str:
@@ -126,20 +177,11 @@ def _get_model_path(models_dir: str, name: str) -> str:
     return os.path.join(models_dir, _MODEL_FILES[name]["fp32"])
 
 
-def _auto_export(models_dir: str):
-    """Auto-export FP32 ONNX models on first launch (needs torch + transformers)."""
-    print("[Models] ONNX models not found, exporting (this only happens once)...", flush=True)
-    from core.export_onnx import export_dinov2, export_clip, write_model_version
-
-    if not os.path.exists(os.path.join(models_dir, "dinov2.onnx")):
-        export_dinov2(models_dir)
-    clip_image = os.path.join(models_dir, "clip_image.onnx")
-    clip_text = os.path.join(models_dir, "clip_text.onnx")
-    if not os.path.exists(clip_image) or not os.path.exists(clip_text):
-        export_clip(models_dir)
-
-    write_model_version(models_dir)
-    print("[Models] FP32 export complete.", flush=True)
+def _ensure_models(models_dir: str, data_dir: str):
+    """Check models exist. Raises if not."""
+    if _models_ready(models_dir) and _check_model_version(models_dir):
+        return
+    raise RuntimeError(f"Models not found in: {models_dir}")
 
 
 def _create_session(model_path: str) -> ort.InferenceSession:
@@ -212,6 +254,7 @@ class ClipModel:
         avg = avg / np.linalg.norm(avg, axis=-1, keepdims=True)
         return avg.flatten().astype(np.float32)
 
+
 _dino_model: DinoModel | None = None
 _clip_model: ClipModel | None = None
 _model_lock = threading.Lock()
@@ -223,17 +266,7 @@ def init_models_dir(data_dir: str):
     global _models_dir, _data_dir
     _data_dir = data_dir
     _models_dir = _get_models_dir(data_dir)
-
-    # Step 1: ensure FP32 base models exist and version matches
-    version_ok = _check_model_version(_models_dir)
-    models_ok = _fp32_models_exist(_models_dir)
-    if not models_ok or not version_ok:
-        if not version_ok:
-            _clear_old_models(_models_dir, data_dir)
-        _auto_export(_models_dir)
-
-    # Step 2: quantize to INT8 based on platform (no torch needed)
-    _quantize_for_platform(_models_dir)
+    _ensure_models(_models_dir, data_dir)
 
 
 def get_dino_model() -> DinoModel:

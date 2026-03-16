@@ -15,6 +15,8 @@ __pycache__/
 # Tauri
 src-tauri/target/
 src-tauri/WixTools/
+src-tauri/backend/*
+!src-tauri/backend/.gitkeep
 
 # Data
 data/
@@ -25,9 +27,14 @@ thumbnails/
 # IDE
 .idea/
 .vscode/
+.claude/
+.kiro/
 *.swp
 *.swo
 .DS_Store
+
+# Local build artifacts
+backend/dist-models/
 
 # Env
 .env

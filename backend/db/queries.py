@@ -13,6 +13,7 @@ def insert_image(
     fmt: str,
     taken_at: str | None,
     thumbnail: str | None,
+    created_at: str | None = None,
     latitude: float | None = None,
     longitude: float | None = None,
     location_name: str | None = None,
@@ -26,10 +27,10 @@ def insert_image(
     conn = get_connection()
     cursor = conn.execute(
         """INSERT INTO images (file_path, file_hash, file_size, width, height, format, taken_at, thumbnail,
-           latitude, longitude, location_name, camera_make, camera_model, lens_model, focal_length, aperture, iso)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+           created_at, latitude, longitude, location_name, camera_make, camera_model, lens_model, focal_length, aperture, iso)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP), ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (file_path, file_hash, file_size, width, height, fmt, taken_at, thumbnail,
-         latitude, longitude, location_name, camera_make, camera_model, lens_model, focal_length, aperture, iso),
+         created_at, latitude, longitude, location_name, camera_make, camera_model, lens_model, focal_length, aperture, iso),
     )
     conn.commit()
     return cursor.lastrowid
