@@ -38,6 +38,7 @@ pub fn run() {
                 let state = handle.state::<BackendState>();
                 if let Err(e) = state.spawn_backend(&data_dir) {
                     log::error!("Failed to start backend: {}", e);
+                    *state.status.lock().unwrap() = "error".to_string();
                 }
             });
 

@@ -119,6 +119,13 @@ fn find_backend_dir() -> Result<PathBuf, String> {
     // Try: next to the app binary (bundled mode)
     if let Ok(exe) = std::env::current_exe() {
         if let Some(exe_dir) = exe.parent() {
+            // macOS: Resources dir is sibling to MacOS dir inside .app bundle
+            if let Some(macos_dir) = exe_dir.parent() {
+                let candidate = macos_dir.join("Resources").join("backend");
+                if candidate.join("synapse-backend").exists() || candidate.join("synapse-backend.exe").exists() {
+                    return Ok(candidate);
+                }
+            }
             let candidate = exe_dir.join("backend");
             if candidate.join("main.py").exists() || candidate.join("synapse-backend").exists() || candidate.join("synapse-backend.exe").exists() {
                 return Ok(candidate);
