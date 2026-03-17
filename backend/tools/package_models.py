@@ -27,6 +27,7 @@ def _quantize_int8(fp32_path: str, int8_path: str):
     from onnxruntime.quantization import quantize_dynamic, QuantType
     print(f"[Quantize] {os.path.basename(fp32_path)} -> {os.path.basename(int8_path)}")
     quantize_dynamic(fp32_path, int8_path, weight_type=QuantType.QInt8,
+                     op_types_to_quantize=["MatMul"],
                      extra_options={"MatMulConstBOnly": True})
 
 

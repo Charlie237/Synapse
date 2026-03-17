@@ -21,7 +21,7 @@ from PIL import Image
 
 DINO_DIM = 768
 CLIP_DIM = 512
-MODEL_VERSION = "1"
+MODEL_VERSION = "2"
 
 DEFAULT_MODEL_URL = "https://github.com/Charlie237/Synapse/releases/download/models-v{version}/models-{arch}.zip"
 
