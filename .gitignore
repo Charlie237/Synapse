@@ -39,3 +39,8 @@ backend/dist-models/
 # Env
 .env
 .env.*
+
+backend/build/
+backend/dist/
+backend/dist-models/
+src-tauri/backend/
