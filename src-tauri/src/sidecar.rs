@@ -1,12 +1,16 @@
+use std::collections::VecDeque;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
+
+const MAX_LOG_LINES: usize = 500;
 
 pub struct BackendState {
     pub port: Mutex<Option<u16>>,
     pub status: Mutex<String>,
+    pub logs: Arc<Mutex<VecDeque<String>>>,
     process: Mutex<Option<Child>>,
 }
 
@@ -15,8 +19,17 @@ impl BackendState {
         Self {
             port: Mutex::new(None),
             status: Mutex::new("starting".to_string()),
+            logs: Arc::new(Mutex::new(VecDeque::new())),
             process: Mutex::new(None),
         }
+    }
+
+    fn push_log(logs: &Mutex<VecDeque<String>>, line: String) {
+        let mut buf = logs.lock().unwrap();
+        if buf.len() >= MAX_LOG_LINES {
+            buf.pop_front();
+        }
+        buf.push_back(line);
     }
 
     pub fn spawn_backend(&self, data_dir: &str) -> Result<(), String> {
@@ -24,7 +37,6 @@ impl BackendState {
         let python = find_python(&backend_dir)?;
         let main_py = backend_dir.join("main.py");
 
-        // Bundled mode: executable runs directly; dev mode: python main.py
         let is_bundled = python.file_stem().map(|s| s.to_string_lossy().starts_with("synapse-backend")).unwrap_or(false);
 
         log::info!(
@@ -33,6 +45,11 @@ impl BackendState {
         );
 
         let mut cmd = Command::new(&python);
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+        }
         if !is_bundled {
             if !main_py.exists() {
                 return Err(format!("backend/main.py not found at {:?}", main_py));
@@ -46,17 +63,30 @@ impl BackendState {
             .arg(data_dir)
             .current_dir(&backend_dir)
             .stdout(Stdio::piped())
-            .stderr(Stdio::inherit())
+            .stderr(Stdio::piped())
             .spawn()
             .map_err(|e| format!("Failed to spawn backend: {}", e))?;
 
         let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
         let reader = BufReader::new(stdout);
 
+        // Log stderr in background thread
+        if let Some(stderr) = child.stderr.take() {
+            let logs = Arc::clone(&self.logs);
+            std::thread::spawn(move || {
+                let reader = BufReader::new(stderr);
+                for line in reader.lines().flatten() {
+                    log::info!("Backend: {}", line);
+                    Self::push_log(&logs, line);
+                }
+            });
+        }
+
         for line in reader.lines() {
             match line {
                 Ok(line) => {
                     log::info!("Backend stdout: {}", line);
+                    Self::push_log(&self.logs, line.clone());
                     if let Some(port_str) = line.strip_prefix("READY:") {
                         if let Ok(port) = port_str.trim().parse::<u16>() {
                             *self.port.lock().unwrap() = Some(port);
@@ -112,11 +142,10 @@ impl Drop for BackendState {
     }
 }
 
-/// Find the backend/ directory. In dev mode, cwd is src-tauri/, so parent is project root.
+/// Find the backend/ directory.
 fn find_backend_dir() -> Result<PathBuf, String> {
     let cwd = std::env::current_dir().map_err(|e| e.to_string())?;
 
-    // Try: next to the app binary (bundled mode)
     if let Ok(exe) = std::env::current_exe() {
         if let Some(exe_dir) = exe.parent() {
             // macOS: Resources dir is sibling to MacOS dir inside .app bundle
@@ -133,7 +162,7 @@ fn find_backend_dir() -> Result<PathBuf, String> {
         }
     }
 
-    // Try: cwd/../backend (dev mode, cwd = src-tauri)
+    // Dev mode: cwd/../backend (cwd = src-tauri)
     if let Some(parent) = cwd.parent() {
         let candidate = parent.join("backend");
         if candidate.join("main.py").exists() {
@@ -141,21 +170,16 @@ fn find_backend_dir() -> Result<PathBuf, String> {
         }
     }
 
-    // Try: cwd/backend (if cwd is project root)
     let candidate = cwd.join("backend");
     if candidate.join("main.py").exists() {
         return Ok(candidate);
     }
 
-    Err(format!(
-        "Cannot find backend/ directory. cwd={:?}",
-        cwd
-    ))
+    Err(format!("Cannot find backend/ directory. cwd={:?}", cwd))
 }
 
-/// Find Python: prefer .venv in backend dir, then system python3/python.
+/// Find Python: prefer bundled exe, then .venv, then system python.
 fn find_python(backend_dir: &PathBuf) -> Result<PathBuf, String> {
-    // Check for bundled PyInstaller executable
     let bundled = if cfg!(windows) {
         backend_dir.join("synapse-backend.exe")
     } else {
@@ -166,7 +190,6 @@ fn find_python(backend_dir: &PathBuf) -> Result<PathBuf, String> {
         return Ok(bundled);
     }
 
-    // Check .venv/bin/python inside backend dir
     let venv_bin = if cfg!(windows) { "Scripts" } else { "bin" };
     let venv_python = backend_dir.join(".venv").join(venv_bin).join(if cfg!(windows) { "python.exe" } else { "python" });
     if venv_python.exists() {
@@ -174,7 +197,6 @@ fn find_python(backend_dir: &PathBuf) -> Result<PathBuf, String> {
         return Ok(venv_python);
     }
 
-    // Fallback to system python
     for name in ["python3", "python"] {
         if Command::new(name)
             .arg("--version")

@@ -20,6 +20,7 @@ a = Analysis(
         'jieba',
         'PIL',
         'pillow_heif',
+        'tokenizers',
     ],
     hookspath=[],
     hooksconfig={},
@@ -41,7 +42,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=True,
+    console=False,
 )
 
 coll = COLLECT(

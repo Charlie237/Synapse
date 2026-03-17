@@ -47,6 +47,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::get_backend_port,
             commands::get_backend_status,
+            commands::get_backend_logs,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

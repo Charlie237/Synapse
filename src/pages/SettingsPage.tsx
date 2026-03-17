@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { open } from "@tauri-apps/plugin-dialog";
+import { invoke } from "@tauri-apps/api/core";
 import { useTheme } from "../hooks/useTheme";
 import { useI18n } from "../hooks/useI18n";
 import { useBackend } from "../hooks/useBackend";
@@ -30,6 +31,9 @@ export default function SettingsPage() {
   const [refreshResult, setRefreshResult] = useState<string | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [removingFolder, setRemovingFolder] = useState<string | null>(null);
+  const [showLogs, setShowLogs] = useState(false);
+  const [logs, setLogs] = useState<string[]>([]);
+  const logsEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (status !== "ready") return;
@@ -45,6 +49,23 @@ export default function SettingsPage() {
       setMirrorUrl(s.model_mirror_url || "");
     }).catch(() => {});
   }, [status]);
+
+  useEffect(() => {
+    if (!showLogs) return;
+    let cancelled = false;
+    const poll = async () => {
+      while (!cancelled) {
+        try {
+          const lines = await invoke<string[]>("get_backend_logs");
+          setLogs(lines);
+          setTimeout(() => logsEndRef.current?.scrollIntoView(), 50);
+        } catch {}
+        await new Promise((r) => setTimeout(r, 1500));
+      }
+    };
+    poll();
+    return () => { cancelled = true; };
+  }, [showLogs]);
 
   const saveAI = useCallback(async () => {
     const data: Record<string, string> = {
@@ -246,6 +267,7 @@ export default function SettingsPage() {
             )}
           </div>
           <p className={`${descClass} mt-3`}>Synapse v0.1.0 — {t("aboutDesc")}</p>
+          <button onClick={() => setShowLogs(true)} className={`${pill(false)} mt-2`}>{t("backendLogs")}</button>
           <div className={`mt-3 pt-3 border-t ${isDark ? "border-neutral-700" : "border-neutral-200"}`}>
             <p className={descClass}>{t("modelMirrorDesc")}</p>
             <input type="text" value={mirrorUrl} onChange={(e) => setMirrorUrl(e.target.value)}
@@ -267,6 +289,22 @@ export default function SettingsPage() {
               <button onClick={() => setRemovingFolder(null)} className={pill(false)}>{t("cancel")}</button>
               <button onClick={() => removeFolder(removingFolder)}
                 className="px-3 py-1.5 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors">{t("confirmRemoveFolder")}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Backend logs modal */}
+      {showLogs && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowLogs(false)}>
+          <div className={`rounded-xl p-5 w-[640px] max-h-[70vh] mx-4 flex flex-col ${isDark ? "bg-neutral-800" : "bg-white shadow-xl"}`} onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-sm font-semibold">{t("backendLogs")}</h3>
+              <button onClick={() => setShowLogs(false)} className={`text-xs px-2 py-1 rounded ${isDark ? "hover:bg-neutral-700" : "hover:bg-neutral-100"}`}>✕</button>
+            </div>
+            <div className={`flex-1 overflow-y-auto rounded-lg p-3 font-mono text-xs leading-5 ${isDark ? "bg-neutral-900 text-neutral-300" : "bg-neutral-50 text-neutral-700"}`}>
+              {logs.length === 0 ? <span className={subClass}>No logs yet</span> : logs.map((line, i) => <div key={i}>{line}</div>)}
+              <div ref={logsEndRef} />
             </div>
           </div>
         </div>

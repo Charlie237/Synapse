@@ -52,7 +52,7 @@ jobs:
         working-directory: backend
         run: |
           pip install pyinstaller
-          pip install fastapi "uvicorn[standard]" onnxruntime onnx Pillow pillow-heif numpy jieba
+          pip install fastapi "uvicorn[standard]" onnxruntime onnx Pillow pillow-heif numpy jieba tokenizers
 
       - name: Bundle Python backend
         working-directory: backend
