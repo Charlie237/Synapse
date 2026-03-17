@@ -21,6 +21,7 @@ a = Analysis(
         'PIL',
         'pillow_heif',
         'tokenizers',
+        'reverse_geocoder',
     ],
     hookspath=[],
     hooksconfig={},
