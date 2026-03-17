@@ -1,6 +1,7 @@
 """SQLite database connection management."""
 import os
 import sqlite3
+import sys
 import threading
 
 _local = threading.local()
@@ -12,7 +13,8 @@ def init_db(data_dir: str):
     _db_path = os.path.join(data_dir, "gallery.db")
 
     conn = get_connection()
-    schema_path = os.path.join(os.path.dirname(__file__), "schema.sql")
+    base = getattr(sys, '_MEIPASS', os.path.dirname(__file__))
+    schema_path = os.path.join(base, "db", "schema.sql") if hasattr(sys, '_MEIPASS') else os.path.join(base, "schema.sql")
     with open(schema_path) as f:
         conn.executescript(f.read())
     conn.commit()

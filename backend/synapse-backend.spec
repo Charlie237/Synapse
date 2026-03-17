@@ -5,7 +5,7 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[('db/schema.sql', 'db')],
     hiddenimports=[
         'uvicorn.logging',
         'uvicorn.loops',

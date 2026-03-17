@@ -153,8 +153,7 @@ def reverse_geocode(lat: float, lon: float) -> str:
             province = _ADMIN1_ZH.get(admin1, admin1)
             if admin1 in ("Beijing", "Shanghai", "Tianjin", "Chongqing"):
                 return province
-            city_zh = _CITY_ZH.get(city, city)
-            return f"{province}{city_zh}"
+            return f"{province}{city}"
         return f"{city}, {admin1}, {cc}"
     except Exception:
         return f"{lat:.4f}, {lon:.4f}"
