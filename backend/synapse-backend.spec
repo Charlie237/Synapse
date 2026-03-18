@@ -22,6 +22,7 @@ a = Analysis(
         'pillow_heif',
         'tokenizers',
         'reverse_geocoder',
+        'pypinyin',
     ],
     hookspath=[],
     hooksconfig={},

@@ -38,6 +38,7 @@ export default function ImageCard({ image, sortBy, onClick }: Props) {
     onSuccess: (data) => {
       setIsFav(data.is_favorite);
       queryClient.invalidateQueries({ queryKey: ["favorites"] });
+      queryClient.invalidateQueries({ queryKey: ["images"] });
     },
     onError: () => {
       setIsFav(image.is_favorite);

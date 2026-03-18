@@ -19,7 +19,16 @@ async def get_timeline():
         GROUP BY month
         ORDER BY month DESC
     """).fetchall()
-    return {"months": [{"month": r[0], "count": r[1], "locations": r[2] or ""} for r in rows]}
+
+    result = []
+    for r in rows:
+        month = r[0]
+        locs = conn.execute(
+            "SELECT DISTINCT location_name FROM images WHERE deleted_at IS NULL AND substr(taken_at,1,7) = ? AND location_name IS NOT NULL",
+            (month,)
+        ).fetchall()
+        result.append({"month": month, "count": r[1], "locations": "|".join(l[0] for l in locs)})
+    return {"months": result}
 
 
 @router.get("/timeline/{month}")

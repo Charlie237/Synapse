@@ -69,8 +69,8 @@ async def search(req: SearchRequest, request: Request):
                 if date_to and dv > date_to:
                     continue
             if locations:
-                loc = img.get("location_name") or ""
-                if not any(l in loc for l in locations):
+                loc = (img.get("location_name") or "").lower()
+                if not any(l.lower() in loc for l in locations):
                     continue
             search_results.append({"image": img, "score": float(score)})
             if len(search_results) >= req.limit:

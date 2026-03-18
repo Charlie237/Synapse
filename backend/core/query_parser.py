@@ -2,9 +2,11 @@
 import re
 import json
 import jieba
+from pypinyin import lazy_pinyin
 from db.database import get_connection
 
 _location_cache: set[str] | None = None
+_location_lower_map: dict[str, str] = {}
 
 
 def _get_location_set() -> set[str]:
@@ -15,13 +17,20 @@ def _get_location_set() -> set[str]:
 
 
 def refresh_location_cache():
-    global _location_cache
+    global _location_cache, _location_lower_map
     try:
         conn = get_connection()
         rows = conn.execute("SELECT DISTINCT location_name FROM images WHERE location_name IS NOT NULL").fetchall()
         _location_cache = {row[0] for row in rows}
+        _location_lower_map = {row[0].lower(): row[0] for row in rows}
     except Exception:
         _location_cache = set()
+        _location_lower_map = {}
+
+
+def _to_pinyin(text: str) -> str:
+    """Convert Chinese text to pinyin, capitalize each word."""
+    return "".join(w.capitalize() for w in lazy_pinyin(text))
 
 
 def _extract_date(query: str) -> tuple[str, str | None, str | None]:
@@ -86,8 +95,10 @@ def parse_local(query: str) -> dict:
     matched_locs = []
     visual_words = []
     for w in words:
-        if any(w in loc for loc in locations):
-            matched_locs.append(w)
+        # Try direct match first, then pinyin
+        py = _to_pinyin(w).lower()
+        if any(w in loc or py in loc.lower() for loc in locations):
+            matched_locs.append(w if any(w in loc for loc in locations) else py)
         else:
             visual_words.append(w)
 
@@ -111,9 +122,9 @@ def parse_cloud(query: str, api_key: str, base_url: str | None = None, model: st
             model=model,
             response_format={"type": "json_object"},
             messages=[
-                {"role": "system", "content": f'Today is {today}. You parse photo search queries into structured filters. Return ONLY JSON: {{"date_from": "YYYY-MM" or null, "date_to": "YYYY-MM" or null, "locations": ["地名"], "visual": "remaining text"}}. Resolve relative dates to absolute YYYY-MM. locations=place names only. visual=the original query text with dates and locations removed, do NOT rephrase or summarize. Omit fields that are absent: null/[]/"".'},
+                {"role": "system", "content": f'Today is {today}. You parse photo search queries into structured filters. Return ONLY JSON: {{"date_from": "YYYY-MM" or null, "date_to": "YYYY-MM" or null, "locations": ["地名 in Pinyin, e.g. Beijing, Guangdong"], "visual": "remaining text"}}. Resolve relative dates to absolute YYYY-MM. locations=place names converted to Pinyin (capitalize first letter). visual=the original query text with dates and locations removed, do NOT rephrase or summarize. Omit fields that are absent: null/[]/"".'},
                 {"role": "user", "content": "去年北京的早点"},
-                {"role": "assistant", "content": f'{{"date_from": "{date.today().year - 1}-01", "date_to": "{date.today().year - 1}-12", "locations": ["北京"], "visual": "早点"}}'},
+                {"role": "assistant", "content": f'{{"date_from": "{date.today().year - 1}-01", "date_to": "{date.today().year - 1}-12", "locations": ["Beijing"], "visual": "早点"}}'},
                 {"role": "user", "content": query},
             ],
             max_tokens=80,
@@ -122,7 +133,7 @@ def parse_cloud(query: str, api_key: str, base_url: str | None = None, model: st
         return {
             "date_from": data.get("date_from"),
             "date_to": data.get("date_to"),
-            "locations": data.get("locations", []),
+            "locations": [_to_pinyin(l) if re.search(r'[\u4e00-\u9fff]', l) else l for l in data.get("locations", [])],
             "visual": data.get("visual") or "",
             "original": query,
         }

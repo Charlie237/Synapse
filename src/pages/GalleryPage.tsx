@@ -28,9 +28,9 @@ function FilterPanel({ isDark, filters, filterOpts, setFilter, t, onClose }: {
   ];
 
   const toggle = (key: string, val: string) => {
-    const current = filters[key] ? filters[key].split(",") : [];
+    const current = filters[key] ? filters[key].split("|") : [];
     const next = current.includes(val) ? current.filter((v) => v !== val) : [...current, val];
-    setFilter(key, next.join(","));
+    setFilter(key, next.join("|"));
   };
 
   const itemClass = (active: boolean) =>
@@ -47,7 +47,7 @@ function FilterPanel({ isDark, filters, filterOpts, setFilter, t, onClose }: {
           <p className={`text-[10px] font-medium uppercase tracking-wider mb-1.5 ${isDark ? "text-neutral-500" : "text-neutral-400"}`}>{s.label}</p>
           <div className="flex flex-wrap gap-1">
             {s.opts.map((v) => {
-              const selected = (filters[s.key] || "").split(",").includes(v);
+              const selected = (filters[s.key] || "").split("|").includes(v);
               return (
                 <span key={v} onClick={() => toggle(s.key, v)} className={itemClass(selected)}>
                   {s.key === "focal_length" ? `${v}mm` : v}
@@ -177,7 +177,7 @@ export default function GalleryPage() {
             </button>
             {hasFilter && (
               <span className="absolute -top-1 -right-1 w-4 h-4 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold leading-none">
-                {Object.values(filters).filter(Boolean).reduce((n, v) => n + v.split(",").length, 0)}
+                {Object.values(filters).filter(Boolean).reduce((n, v) => n + v.split("|").length, 0)}
               </span>
             )}
             {showFilter && (

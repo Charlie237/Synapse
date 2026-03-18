@@ -2,7 +2,7 @@ mod commands;
 mod sidecar;
 
 use sidecar::BackendState;
-use tauri::Manager;
+use tauri::{Manager, RunEvent};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -49,6 +49,11 @@ pub fn run() {
             commands::get_backend_status,
             commands::get_backend_logs,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            if let RunEvent::Exit = event {
+                app.state::<BackendState>().shutdown();
+            }
+        });
 }

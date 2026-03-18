@@ -131,18 +131,6 @@ def read_exif_metadata(image: Image.Image) -> tuple[str | None, float | None, fl
 # --- Reverse geocoding ---
 import reverse_geocoder as _rg
 
-_ADMIN1_ZH = {
-    "Beijing": "北京", "Shanghai": "上海", "Tianjin": "天津", "Chongqing": "重庆",
-    "Guangdong": "广东", "Zhejiang": "浙江", "Jiangsu": "江苏", "Shandong": "山东",
-    "Henan": "河南", "Sichuan": "四川", "Hubei": "湖北", "Hunan": "湖南",
-    "Fujian": "福建", "Anhui": "安徽", "Hebei": "河北", "Shaanxi": "陕西",
-    "Jiangxi": "江西", "Liaoning": "辽宁", "Yunnan": "云南", "Guangxi": "广西",
-    "Shanxi": "山西", "Guizhou": "贵州", "Gansu": "甘肃", "Heilongjiang": "黑龙江",
-    "Jilin": "吉林", "Inner Mongolia": "内蒙古", "Xinjiang": "新疆", "Tibet": "西藏",
-    "Hainan": "海南", "Ningxia": "宁夏", "Qinghai": "青海",
-    "Hong Kong": "香港", "Macau": "澳门", "Taiwan": "台湾",
-}
-
 
 def reverse_geocode(lat: float, lon: float) -> str:
     """Convert GPS coordinates to a human-readable location name."""
@@ -150,10 +138,11 @@ def reverse_geocode(lat: float, lon: float) -> str:
         r = _rg.search([(lat, lon)])[0]
         city, admin1, cc = r["name"], r["admin1"], r["cc"]
         if cc == "CN":
-            province = _ADMIN1_ZH.get(admin1, admin1)
-            if admin1 in ("Beijing", "Shanghai", "Tianjin", "Chongqing"):
-                return province
-            return f"{province}{city}"
+            # Strip " Sheng" / " Shi" etc. from admin1 for cleaner display
+            admin1 = admin1.split(" ")[0] if " " in admin1 else admin1
+            if city.lower() == admin1.lower():
+                return admin1
+            return f"{admin1} {city}"
         return f"{city}, {admin1}, {cc}"
     except Exception:
         return f"{lat:.4f}, {lon:.4f}"

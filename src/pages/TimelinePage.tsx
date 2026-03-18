@@ -22,7 +22,7 @@ function MonthRow({ month, count, locations, maxCount, isDark }: {
 
   const images: ImageInfo[] = data?.images ?? [];
   const monthNum = parseInt(month.slice(5));
-  const locs = locations.split(",").filter(Boolean);
+  const locs = locations.split("|").filter(Boolean);
   const barW = Math.max((count / maxCount) * 100, 4);
 
   // Group images by date
@@ -47,8 +47,8 @@ function MonthRow({ month, count, locations, maxCount, isDark }: {
             style={{ width: `${barW}%` }}>
             <span className="text-xs text-white font-medium">{count}</span>
           </div>
-          {locs.map((loc) => (
-            <span key={loc} className={`text-xs px-1.5 py-0.5 rounded ${isDark ? "bg-neutral-700/60 text-neutral-300" : "bg-neutral-100 text-neutral-600"}`}>
+          {locs.slice(0, 3).map((loc) => (
+            <span key={loc} className={`text-xs px-1.5 py-0.5 rounded truncate max-w-[120px] ${isDark ? "bg-neutral-700/60 text-neutral-300" : "bg-neutral-100 text-neutral-600"}`}>
               📍{loc}
             </span>
           ))}
@@ -140,7 +140,7 @@ export default function TimelinePage() {
       <div className="flex-1 overflow-y-auto px-6 py-4">
         {displayYears.map(([year, items]) => {
           const yearTotal = items.reduce((s, m) => s + m.count, 0);
-          const yearLocs = new Set(items.flatMap((m) => m.locations.split(",").filter(Boolean)));
+          const yearLocs = new Set(items.flatMap((m) => m.locations.split("|").filter(Boolean)));
           return (
             <div key={year} className="mb-8">
               <div className="flex items-baseline gap-3 mb-4">

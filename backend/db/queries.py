@@ -26,7 +26,7 @@ def insert_image(
 ) -> int:
     conn = get_connection()
     cursor = conn.execute(
-        """INSERT INTO images (file_path, file_hash, file_size, width, height, format, taken_at, thumbnail,
+        """INSERT OR IGNORE INTO images (file_path, file_hash, file_size, width, height, format, taken_at, thumbnail,
            created_at, latitude, longitude, location_name, camera_make, camera_model, lens_model, focal_length, aperture, iso)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP), ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (file_path, file_hash, file_size, width, height, fmt, taken_at, thumbnail,
@@ -96,7 +96,7 @@ def get_images_paginated(page: int = 1, size: int = 50, sort_by: str = "created_
     def _add_multi(col: str, val: str | None):
         if not val:
             return
-        vals = [v.strip() for v in val.split(",") if v.strip()]
+        vals = [v.strip() for v in val.split("|") if v.strip()]
         if len(vals) == 1:
             where.append(f"{col} = ?")
             params.append(vals[0])
@@ -108,7 +108,7 @@ def get_images_paginated(page: int = 1, size: int = 50, sort_by: str = "created_
     _add_multi("lens_model", lens)
     _add_multi("location_name", location)
     if focal_length:
-        fls = [v.strip() for v in focal_length.split(",") if v.strip()]
+        fls = [v.strip() for v in focal_length.split("|") if v.strip()]
         if len(fls) == 1:
             where.append("CAST(focal_length AS INTEGER) = ?")
             params.append(int(fls[0]))
